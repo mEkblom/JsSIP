@@ -16,6 +16,7 @@ var DigestAuthentication,
 DigestAuthentication = function(ua) {
   this.username = ua.configuration.authorization_user;
   this.password = ua.configuration.password;
+  this.authhash = ua.configuration.authentication_hash;
   this.cnonce = null;
   this.nc = 0;
   this.ncHex = '00000000';
@@ -103,7 +104,11 @@ DigestAuthentication.prototype.calculateResponse = function() {
   var ha1, ha2;
 
   // HA1 = MD5(A1) = MD5(username:realm:password)
-  ha1 = JsSIP.Utils.calculateMD5(this.username + ":" + this.realm + ":" + this.password);
+  if (this.authhash) {
+    ha1 = this.authhash;
+  } else {
+    ha1 = JsSIP.Utils.calculateMD5(this.username + ":" + this.realm + ":" + this.password);
+  }
 
   if (this.qop === 'auth') {
     // HA2 = MD5(A2) = MD5(method:digestURI)

@@ -77,7 +77,7 @@ RequestSender.prototype = {
     * Authentication
     * Authenticate once. _challenged_ flag used to avoid infinite authentications.
     */
-    if ((status_code === 401 || status_code === 407) && this.ua.configuration.password !== null) {
+    if ((status_code === 401 || status_code === 407) && (this.ua.configuration.password !== null || this.ua.configuration.authentication_hash !== null)) {
 
       // Get and parse the appropriate WWW-Authenticate or Proxy-Authenticate header.
       if (response.status_code === 401) {
