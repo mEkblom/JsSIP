@@ -988,6 +988,7 @@ UA.configuration_skeleton = (function() {
       "instance_id",
       "no_answer_timeout", // 30 seconds.
       "password",
+      "authentication_hash",
       "register_expires", // 600 seconds.
       "registrar_server",
       "stun_servers",
@@ -1177,6 +1178,12 @@ UA.configuration_check = {
 
     password: function(password) {
       return String(password);
+    },
+
+    authentication_hash: function(hash) {
+      if(typeof hash==='string' && /^[0-9a-z]{32}$/i.test(hash)) {
+        return hash;
+      }
     },
 
     register: function(register) {
