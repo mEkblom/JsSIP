@@ -762,7 +762,9 @@ UA.prototype.loadConfig = function(configuration) {
   this.contact = {
     pub_gruu: null,
     temp_gruu: null,
-    uri: new JsSIP.URI('sip', JsSIP.Utils.createRandomToken(8), settings.via_host, null, {transport: 'ws'}),
+    uri: settings.authorization_user ?
+      new JsSIP.URI('sip', settings.uri.user, settings.hostport_params, null, {}) :
+      new JsSIP.URI('sip', JsSIP.Utils.createRandomToken(8), settings.via_host, null, {transport: 'ws'}),
     toString: function(options){
       options = options || {};
 
