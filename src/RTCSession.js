@@ -813,11 +813,51 @@ RTCSession.prototype.sendInitialRequest = function(constraints) {
    self.failed('local', null, JsSIP.C.causes.WEBRTC_ERROR);
  };
 
- this.rtcMediaHandler.getUserMedia(
-   userMediaSucceeded,
+ // Screen sharing for testing purposes
+ if(constraints.screen) {
+   delete constraints.screen;
+
+   var c = {audio: false, video: {
+    mandatory: {
+      chromeMediaSource: 'screen',
+      maxWidth: 1280,
+      maxHeight: 720
+    },
+    optional: []
+   }};
+
+  this.rtcMediaHandler.getUserMedia(
+   function(stream) {
+    self.rtcMediaHandler.addStream(
+      stream,
+      function() {
+        self.rtcMediaHandler.getUserMedia(
+          function(stream){
+           self.rtcMediaHandler.addStream(
+             stream,
+             streamAdditionSucceeded,
+             streamAdditionFailed
+           );
+
+            },
+          function(){console.warn("Media capture with desktop failed");},
+          {audio:true,video:false}
+       );
+      },
+      streamAdditionFailed);
+   },
    userMediaFailed,
-   constraints
- );
+   c
+  );
+
+ } else {
+
+   this.rtcMediaHandler.getUserMedia(
+     userMediaSucceeded,
+     userMediaFailed,
+     constraints
+   );
+ }
 };
 
 /**
