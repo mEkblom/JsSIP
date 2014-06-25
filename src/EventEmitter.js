@@ -142,7 +142,7 @@ EventEmitter.prototype = {
   * @param {Array} args
   */
   emit: function(event, sender, data) {
-    var listeners, length, 
+    var listeners, 
       emitter = this;
 
     if (!this.checkEvent(event)) {
@@ -152,13 +152,13 @@ EventEmitter.prototype = {
     console.log(LOG_PREFIX +'emitting event '+event);
 
     listeners = this.events[event];
-    length = listeners.length;
 
     var e = new JsSIP.Event(event, sender, data);
 
     window.setTimeout(
       function(){
-        var idx=0;
+        var idx=0,
+          length = listeners.length;
         
         for (idx; idx<length; idx++) {
           listeners[idx].call(null, e);
