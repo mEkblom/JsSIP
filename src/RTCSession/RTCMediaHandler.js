@@ -228,23 +228,22 @@ RTCMediaHandler.prototype = {
     var self = this;
 
     this.logger.log('requesting access to local media');
+    this.session.emit('mediaRequested',this.session,constraints);
 
     JsSIP.WebRTC.getUserMedia(constraints,
       function(stream) {
         self.logger.log('got local media stream');
         self.localMedia = stream;
-        self.session.ua.emit('mediaGranted',self.session.ua,constraints);
+        self.session.emit('mediaGranted',self.session,constraints);
         onSuccess(stream);
       },
       function(e) {
         self.logger.error('unable to get user media');
         self.logger.error(e);
-        self.session.ua.emit('mediaDenied',self.session.ua,e);
+        self.session.emit('mediaDenied',self.session,e);
         onFailure();
       }
     );
-
-    this.session.ua.emit('mediaRequested',this.session.ua,constraints);
 
   },
 

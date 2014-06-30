@@ -40,7 +40,10 @@ RTCSession = function(ua) {
   'hold',
   'unhold',
   'muted',
-  'unmuted'
+  'unmuted',
+  'mediaRequested',
+  'mediaDenied',
+  'mediaGranted'
   ];
 
   this.ua = ua;
