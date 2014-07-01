@@ -420,38 +420,6 @@ RTCSession.prototype.answer = function(options) {
   if (mediaStream) {
     // Use already exiting media stream
     userMediaSucceeded(mediaStream);
-
-  } else if(mediaConstraints.screen) {
-    // Try to share screen (will require Chrome with screen-capture flag and https)
-    this.rtcMediaHandler.getUserMedia(
-      function(stream) {
-        self.rtcMediaHandler.addStream(
-          stream,
-          function() {
-            self.rtcMediaHandler.getUserMedia(
-              function(stream){
-                self.rtcMediaHandler.addStream(
-                  stream,
-                  streamAdditionSucceeded,
-                  streamAdditionFailed
-                );
-              },
-              userMediaFailed,
-              {audio: mediaConstraints.audio, video: mediaConstraints.video}
-            );
-          },
-          streamAdditionFailed
-        );
-      },
-      userMediaFailed,
-      {audio: false,
-        video: {
-          mandatory: {chromeMediaSource: 'screen'},
-          optional: []
-        }
-      }
-    );
-
   } else {
     // Request general audio or video
     this.rtcMediaHandler.getUserMedia(
@@ -1357,8 +1325,42 @@ RTCSession.prototype.sendInitialRequest = function(mediaConstraints, RTCOfferCon
  this.receiveResponse = this.receiveInviteResponse;
 
  if (mediaStream) {
+    // Use already exiting media stream
    userMediaSucceeded(mediaStream);
+
+  } else if(mediaConstraints.screen) {
+    // Try to share screen (will require Chrome with screen-capture flag and https)
+    this.rtcMediaHandler.getUserMedia(
+      function(stream) {
+        self.rtcMediaHandler.addStream(
+          stream,
+          function() {
+            self.rtcMediaHandler.getUserMedia(
+              function(stream){
+                self.rtcMediaHandler.addStream(
+                  stream,
+                  streamAdditionSucceeded,
+                  streamAdditionFailed
+                );
+              },
+              userMediaFailed,
+              {audio: mediaConstraints.audio, video: mediaConstraints.video}
+            );
+          },
+          streamAdditionFailed
+        );
+      },
+      userMediaFailed,
+      {audio: false,
+        video: {
+          mandatory: {chromeMediaSource: 'screen'},
+          optional: []
+        }
+      }
+    );
+
  } else {
+    // Request general audio or video
    this.rtcMediaHandler.getUserMedia(
      userMediaSucceeded,
      userMediaFailed,
