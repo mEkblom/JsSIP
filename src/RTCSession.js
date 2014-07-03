@@ -271,7 +271,9 @@ RTCSession.prototype.terminate = function(options) {
 RTCSession.prototype.answer = function(options) {
   options = options || {};
 
-  var idx, length, hasAudio, hasVideo,
+  var idx, length,
+    hasAudio = false,
+    hasVideo = false,
     self = this,
     request = this.request,
     extraHeaders = options.extraHeaders && options.extraHeaders.slice() || [],
@@ -401,20 +403,12 @@ RTCSession.prototype.answer = function(options) {
 
   // Set audio constraints based on incoming stream if not supplied
   if (mediaConstraints.audio === undefined) {
-    if(hasAudio) {
-      mediaConstraints.audio = true;
-    } else {
-      mediaConstraints.audio = false;
-    }
+      mediaConstraints.audio = hasAudio;
   }
 
   // Set video constraints based on incoming stream if not supplied
   if (mediaConstraints.video === undefined) {
-    if(hasVideo) {
-      mediaConstraints.video = true;
-    } else {
-      mediaConstraints.video = false;
-    }
+      mediaConstraints.video = hasVideo;
   }
 
   if (mediaStream) {
