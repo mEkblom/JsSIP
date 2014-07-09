@@ -1355,7 +1355,13 @@ RTCSession.prototype.sendInitialRequest = function(mediaConstraints, RTCOfferCon
       userMediaFailed,
       {audio: false,
         video: {
-          mandatory: {chromeMediaSource: 'screen'},
+          mandatory: {
+            chromeMediaSource: 'screen',
+            maxWidth: screen.width,
+            maxHeight: screen.height,
+            minFrameRate: 1,
+            maxFrameRate: 5
+          },
           optional: []
         }
       }
