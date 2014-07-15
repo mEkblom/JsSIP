@@ -223,9 +223,9 @@ RTCMediaHandler.prototype = {
     if(this.peerConnection) {
       // Stop any associated streams
       var streams = this.peerConnection.getLocalStreams();
-      var i = streams.length;
-      while(i--) {
-        streams[i].stop();
+      var idx = streams.length;
+      while(idx--) {
+        streams[idx].stop();
       }
       // Close the connection
       this.peerConnection.close();
