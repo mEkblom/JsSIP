@@ -1553,6 +1553,24 @@ RTCSession.prototype.receiveInviteResponse = function(response) {
         break;
       }
 
+      // Remove local media if denied by remote party
+      var sdp = JsSIP.Parser.parseSDP(response.body) || {};
+      if(!(sdp.media instanceof Array)) {
+        sdp.media = [sdp.media || {}];
+      }
+      var idx = sdp.media.length;
+      var removeVideo = false;
+      while(idx--) {
+        if(sdp.media[idx].type==='video' && sdp.media[idx].direction==='inactive') {
+          removeVideo = true;
+        }
+      }
+      var videotrack = this.rtcMediaHandler.localMedia.getVideoTracks()[0];
+      if(videotrack && removeVideo) {
+        this.rtcMediaHandler.localMedia.removeTrack(videotrack);
+      }
+
+      // Confirm call started or failed
       this.rtcMediaHandler.onMessage(
         'answer',
         response.body,
