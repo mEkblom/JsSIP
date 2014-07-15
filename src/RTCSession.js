@@ -1589,6 +1589,7 @@ RTCSession.prototype.receiveInviteResponse = function(response) {
          */
         function(e) {
           session.logger.warn(e);
+          session.status = C.STATUS_CONFIRMED;
           session.acceptAndTerminate(response, 488, 'Not Acceptable Here');
           session.failed('remote', response, JsSIP.C.causes.BAD_MEDIA_DESCRIPTION);
         }
