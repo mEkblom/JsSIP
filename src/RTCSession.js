@@ -1569,7 +1569,7 @@ RTCSession.prototype.receiveInviteResponse = function(response) {
         }
       }
       var videotrack = this.rtcMediaHandler.localMedia.getVideoTracks()[0];
-      if(videotrack && removeVideo) {
+      if(videotrack && removeVideo && this.rtcMediaHandler.localMedia.removeTrack) {
         this.rtcMediaHandler.localMedia.removeTrack(videotrack);
       }
 
