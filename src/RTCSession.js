@@ -1486,7 +1486,7 @@ RTCSession.prototype.receiveInviteResponse = function(response) {
     if(response.status_code >= 100 && response.status_code < 200) {
       this.request.cancel(this.cancelReason);
     } else if(response.status_code >= 200 && response.status_code < 299) {
-      session.status = C.STATUS_CONFIRMED;
+      this.status = C.STATUS_CONFIRMED;
       this.acceptAndTerminate(response);
     }
     return;
@@ -1543,7 +1543,7 @@ RTCSession.prototype.receiveInviteResponse = function(response) {
       );
       break;
     case /^2[0-9]{2}$/.test(response.status_code):
-      session.status = C.STATUS_CONFIRMED;
+      this.status = C.STATUS_CONFIRMED;
 
       if(!response.body) {
         this.acceptAndTerminate(response, 400, 'Missing session description');
