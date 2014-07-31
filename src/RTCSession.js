@@ -1367,6 +1367,10 @@ RTCSession.prototype.sendInitialRequest = function(mediaConstraints, RTCOfferCon
       }
     );
 
+ } else if(!mediaConstraints.audio && !mediaConstraints.video) {
+  // Do not add any local streams, we will only receive
+  streamAdditionSucceeded();
+
  } else {
     // Request general audio or video
    this.rtcMediaHandler.getUserMedia(
