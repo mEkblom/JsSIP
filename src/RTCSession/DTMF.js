@@ -1,11 +1,3 @@
-/**
- * @fileoverview DTMF
- */
-
-/**
- * @class DTMF
- * @param {JsSIP.RTCSession} session
- */
 (function(JsSIP) {
 
 var DTMF,
@@ -23,7 +15,8 @@ DTMF = function(session) {
   'failed'
   ];
 
-  this.session = session;
+  this.logger = session.ua.getLogger('jssip.rtcsession.dtmf', session.id);
+  this.owner = session;
   this.direction = null;
   this.tone = null;
   this.duration = null;
@@ -34,7 +27,7 @@ DTMF.prototype = new JsSIP.EventEmitter();
 
 
 DTMF.prototype.send = function(tone, options) {
-  var request_sender, event, eventHandlers, extraHeaders;
+  var event, eventHandlers, extraHeaders, body;
 
   if (tone === undefined) {
     throw new TypeError('Not enough arguments');
@@ -43,8 +36,9 @@ DTMF.prototype.send = function(tone, options) {
   this.direction = 'outgoing';
 
   // Check RTCSession Status
-  if (this.session.status !== JsSIP.RTCSession.C.STATUS_CONFIRMED && this.session.status !== JsSIP.RTCSession.C.STATUS_WAITING_FOR_ACK) {
-    throw new JsSIP.Exceptions.InvalidStateError(this.session.status);
+  if (this.owner.status !== JsSIP.RTCSession.C.STATUS_CONFIRMED &&
+    this.owner.status !== JsSIP.RTCSession.C.STATUS_WAITING_FOR_ACK) {
+    throw new JsSIP.Exceptions.InvalidStateError(this.owner.status);
   }
 
   // Get DTMF options
@@ -78,25 +72,21 @@ DTMF.prototype.send = function(tone, options) {
 
   extraHeaders.push('Content-Type: application/dtmf-relay');
 
-  this.request = this.session.dialog.createRequest(JsSIP.C.INFO, extraHeaders);
+  body = "Signal= " + this.tone + "\r\n";
+  body += "Duration= " + this.duration;
 
-  this.request.body = "Signal= " + this.tone + "\r\n";
-  this.request.body += "Duration= " + this.duration;
-
-  request_sender = new RequestSender(this);
-
-  this.session.emit('newDTMF', this.session, {
+  this.owner.emit('newDTMF', this.owner, {
     originator: 'local',
     dtmf: this,
     request: this.request
   });
 
-  request_sender.send();
+  this.owner.dialog.sendRequest(this, JsSIP.C.INFO, {
+    extraHeaders: extraHeaders,
+    body: body
+  });
 };
 
-/**
- * @private
- */
 DTMF.prototype.receiveResponse = function(response) {
   var cause;
 
@@ -123,29 +113,31 @@ DTMF.prototype.receiveResponse = function(response) {
   }
 };
 
-/**
- * @private
- */
 DTMF.prototype.onRequestTimeout = function() {
   this.emit('failed', this, {
     originator: 'system',
     cause: JsSIP.C.causes.REQUEST_TIMEOUT
   });
+  this.owner.onRequestTimeout();
 };
 
-/**
- * @private
- */
 DTMF.prototype.onTransportError = function() {
   this.emit('failed', this, {
     originator: 'system',
     cause: JsSIP.C.causes.CONNECTION_ERROR
   });
+  this.owner.onTransportError();
 };
 
-/**
- * @private
- */
+DTMF.prototype.onDialogError = function(response) {
+  this.emit('failed', this, {
+    originator: 'remote',
+    response: response,
+    cause: JsSIP.C.causes.DIALOG_ERROR
+  });
+  this.owner.onDialogError(response);
+};
+
 DTMF.prototype.init_incoming = function(request) {
   var body,
     reg_tone = /^(Signal\s*?=\s*?)([0-9A-D#*]{1})(\s)?.*/,
@@ -169,9 +161,9 @@ DTMF.prototype.init_incoming = function(request) {
   }
 
   if (!this.tone || !this.duration) {
-    console.warn(LOG_PREFIX +'invalid INFO DTMF received, discarded');
+    this.logger.warn('invalid INFO DTMF received, discarded');
   } else {
-    this.session.emit('newDTMF', this.session, {
+    this.owner.emit('newDTMF', this.owner, {
       originator: 'remote',
       dtmf: this,
       request: request
@@ -180,5 +172,5 @@ DTMF.prototype.init_incoming = function(request) {
 };
 
 DTMF.C = C;
-return DTMF;
+JsSIP.RTCSession.DTMF = DTMF;
 }(JsSIP));

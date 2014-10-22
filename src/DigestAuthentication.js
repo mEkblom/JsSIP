@@ -1,19 +1,8 @@
-
-/**
- * @fileoverview SIP Digest Authentication
- */
-
-/**
- * SIP Digest Authentication.
- * @augments JsSIP.
- * @function Digest Authentication
- * @param {JsSIP.UA} ua
- */
 (function(JsSIP) {
-var DigestAuthentication,
-  LOG_PREFIX = JsSIP.name +' | '+ 'DIGEST AUTHENTICATION' +' | ';
+var DigestAuthentication;
 
 DigestAuthentication = function(ua) {
+  this.logger = ua.getLogger('jssip.digestauthentication');
   this.username = ua.configuration.authorization_user;
   this.password = ua.configuration.password;
   this.authhash = ua.configuration.authentication_hash;
@@ -28,9 +17,6 @@ DigestAuthentication = function(ua) {
 * Performs Digest authentication given a SIP request and the challenge
 * received in a response to that request.
 * Returns true if credentials were successfully generated, false otherwise.
-* 
-* @param {JsSIP.OutgoingRequest} request
-* @param {Object} challenge
 */
 DigestAuthentication.prototype.authenticate = function(request, challenge) {
   // Inspect and validate the challenge.
@@ -43,7 +29,7 @@ DigestAuthentication.prototype.authenticate = function(request, challenge) {
 
   if (this.algorithm) {
     if (this.algorithm !== 'MD5') {
-      console.warn(LOG_PREFIX + 'challenge with Digest algorithm different than "MD5", authentication aborted');
+      this.logger.warn('challenge with Digest algorithm different than "MD5", authentication aborted');
       return false;
     }
   } else {
@@ -51,12 +37,12 @@ DigestAuthentication.prototype.authenticate = function(request, challenge) {
   }
 
   if (! this.realm) {
-    console.warn(LOG_PREFIX + 'challenge without Digest realm, authentication aborted');
+    this.logger.warn('challenge without Digest realm, authentication aborted');
     return false;
   }
 
   if (! this.nonce) {
-    console.warn(LOG_PREFIX + 'challenge without Digest nonce, authentication aborted');
+    this.logger.warn('challenge without Digest nonce, authentication aborted');
     return false;
   }
 
@@ -68,7 +54,7 @@ DigestAuthentication.prototype.authenticate = function(request, challenge) {
       this.qop = 'auth-int';
     } else {
       // Otherwise 'qop' is present but does not contain 'auth' or 'auth-int', so abort here.
-      console.warn(LOG_PREFIX + 'challenge without Digest qop different than "auth" or "auth-int", authentication aborted');
+      this.logger.warn('challenge without Digest qop different than "auth" or "auth-int", authentication aborted');
       return false;
     }
   } else {
@@ -98,7 +84,6 @@ DigestAuthentication.prototype.authenticate = function(request, challenge) {
 
 /**
 * Generate Digest 'response' value.
-* @private
 */
 DigestAuthentication.prototype.calculateResponse = function() {
   var ha1, ha2;
@@ -162,7 +147,6 @@ DigestAuthentication.prototype.toString = function() {
 
 /**
 * Generate the 'nc' value as required by Digest in this.ncHex by reading this.nc.
-* @private
 */
 DigestAuthentication.prototype.updateNcHex = function() {
   var hex = Number(this.nc).toString(16);

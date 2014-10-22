@@ -1,26 +1,19 @@
-/**
- * @fileoverview SIP Message
- */
-
 (function(JsSIP) {
 var
   OutgoingRequest,
   IncomingMessage,
   IncomingRequest,
-  IncomingResponse,
-  LOG_PREFIX = JsSIP.name +' | '+ 'SIP MESSAGE' +' | ';
+  IncomingResponse;
 
 /**
- * @augments JsSIP
- * @class Class for outgoing SIP request.
- * @param {String} method request method
- * @param {String} ruri request uri
- * @param {JsSIP.UA} ua
- * @param {Object} params parameters that will have priority over ua.configuration parameters:
+ * -param {String} method request method
+ * -param {String} ruri request uri
+ * -param {JsSIP.UA} ua
+ * -param {Object} params parameters that will have priority over ua.configuration parameters:
  * <br>
  *  - cseq, call_id, from_tag, from_uri, from_display_name, to_uri, to_tag, route_set
- * @param {Object} [headers] extra headers
- * @param {String} [body]
+ * -param {Object} [headers] extra headers
+ * -param {String} [body]
  */
 OutgoingRequest = function(method, ruri, ua, params, extraHeaders, body) {
   var
@@ -36,11 +29,13 @@ OutgoingRequest = function(method, ruri, ua, params, extraHeaders, body) {
     return null;
   }
 
+  this.logger = ua.getLogger('jssip.sipmessage');
+  this.ua = ua;
   this.headers = {};
   this.method = method;
   this.ruri = ruri;
   this.body = body;
-  this.extraHeaders = extraHeaders || [];
+  this.extraHeaders = extraHeaders && extraHeaders.slice() || [];
 
   // Fill the Common SIP Request Headers
 
@@ -92,14 +87,95 @@ OutgoingRequest = function(method, ruri, ua, params, extraHeaders, body) {
 OutgoingRequest.prototype = {
   /**
    * Replace the the given header by the given value.
-   * @param {String} name header name
-   * @param {String | Array} value header value
+   * -param {String} name header name
+   * -param {String | Array} value header value
    */
   setHeader: function(name, value) {
     this.headers[JsSIP.Utils.headerize(name)] = (value instanceof Array) ? value : [value];
   },
+
+  /**
+   * Get the value of the given header name at the given position.
+   * -param {String} name header name
+   * -returns {String|undefined} Returns the specified header, null if header doesn't exist.
+   */
+  getHeader: function(name) {
+    var regexp, idx,
+      length = this.extraHeaders.length,
+      header = this.headers[JsSIP.Utils.headerize(name)];
+
+    if(header) {
+      if(header[0]) {
+        return header[0];
+      }
+    } else {
+      regexp = new RegExp('^\\s*'+ name +'\\s*:','i');
+      for (idx=0; idx<length; idx++) {
+        header = this.extraHeaders[idx];
+        if (regexp.test(header)) {
+          return header.substring(header.indexOf(':')+1).trim();
+        }
+      }
+    }
+
+    return;
+  },
+
+  /**
+   * Get the header/s of the given name.
+   * -param {String} name header name
+   * -returns {Array} Array with all the headers of the specified name.
+   */
+  getHeaders: function(name) {
+    var idx, length, regexp,
+      header = this.headers[JsSIP.Utils.headerize(name)],
+      result = [];
+
+    if (header) {
+      length = header.length;
+      for (idx = 0; idx < length; idx++) {
+        result.push(header[idx]);
+      }
+      return result;
+    } else {
+      length = this.extraHeaders.length;
+      regexp = new RegExp('^\\s*'+ name +'\\s*:','i');
+      for (idx=0; idx<length; idx++) {
+        header = this.extraHeaders[idx];
+        if (regexp.test(header)) {
+          result.push(header.substring(header.indexOf(':')+1).trim());
+        }
+      }
+      return result;
+    }
+  },
+
+  /**
+   * Verify the existence of the given header.
+   * -param {String} name header name
+   * -returns {boolean} true if header with given name exists, false otherwise
+   */
+  hasHeader: function(name) {
+    var regexp, idx,
+      length = this.extraHeaders.length;
+
+    if (this.headers[JsSIP.Utils.headerize(name)]) {
+      return true;
+    } else {
+      regexp = new RegExp('^\\s*'+ name +'\\s*:','i');
+      for (idx=0; idx<length; idx++) {
+        if (regexp.test(this.extraHeaders[idx])) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  },
+
   toString: function() {
-    var msg = '', header, length, idx;
+    var msg = '', header, length, idx,
+      supported = [];
 
     msg += this.method + ' ' + this.ruri + ' SIP/2.0\r\n';
 
@@ -112,10 +188,27 @@ OutgoingRequest.prototype = {
 
     length = this.extraHeaders.length;
     for (idx = 0; idx < length; idx++) {
-      msg += this.extraHeaders[idx] +'\r\n';
+      msg += this.extraHeaders[idx].trim() +'\r\n';
     }
 
-    msg += 'Supported: ' +  JsSIP.UA.C.SUPPORTED +'\r\n';
+    // Supported
+    switch (this.method) {
+      case JsSIP.C.REGISTER:
+        supported.push('path', 'gruu');
+        break;
+      case JsSIP.C.INVITE:
+        if (this.ua.contact.pub_gruu || this.ua.contact.temp_gruu) {
+          supported.push('gruu');
+        }
+        break;
+    }
+
+    supported.push('outbound');
+
+    // Allow
+    msg += 'Allow: '+ JsSIP.Utils.getAllowedMethods(this.ua) +'\r\n';
+
+    msg += 'Supported: ' +  supported +'\r\n';
     msg += 'User-Agent: ' + JsSIP.C.USER_AGENT +'\r\n';
 
     if(this.body) {
@@ -130,10 +223,6 @@ OutgoingRequest.prototype = {
   }
 };
 
-/**
- * @augments JsSIP
- * @class Class for incoming SIP message.
- */
 IncomingMessage = function(){
   this.data = null;
   this.headers = null;
@@ -153,8 +242,6 @@ IncomingMessage.prototype = {
   /**
   * Insert a header of the given name and value into the last position of the
   * header array.
-  * @param {String} name header name
-  * @param {String} value header value
   */
   addHeader: function(name, value) {
     var header = { raw: value };
@@ -169,34 +256,14 @@ IncomingMessage.prototype = {
   },
 
   /**
-   * Count the number of headers of the given header name.
-   * @param {String} name header name
-   * @returns {Number} Number of headers with the given name
-   */
-  countHeader: function(name) {
-    var header = this.headers[JsSIP.Utils.headerize(name)];
-
-    if(header) {
-      return header.length;
-    } else {
-      return 0;
-    }
-  },
-
-  /**
    * Get the value of the given header name at the given position.
-   * @param {String} name header name
-   * @param {Number} [idx=0] header index
-   * @returns {String|undefined} Returns the specified header, null if header doesn't exist.
    */
-  getHeader: function(name, idx) {
+  getHeader: function(name) {
     var header = this.headers[JsSIP.Utils.headerize(name)];
 
-    idx = idx || 0;
-
     if(header) {
-      if(header[idx]) {
-        return header[idx].raw;
+      if(header[0]) {
+        return header[0].raw;
       }
     } else {
       return;
@@ -205,10 +272,8 @@ IncomingMessage.prototype = {
 
   /**
    * Get the header/s of the given name.
-   * @param {String} name header name
-   * @returns {Array} Array with all the headers of the specified name.
    */
-  getHeaderAll: function(name) {
+  getHeaders: function(name) {
     var idx, length,
       header = this.headers[JsSIP.Utils.headerize(name)],
       result = [];
@@ -227,8 +292,6 @@ IncomingMessage.prototype = {
 
   /**
    * Verify the existence of the given header.
-   * @param {String} name header name
-   * @returns {boolean} true if header with given name exists, false otherwise
    */
   hasHeader: function(name) {
     return(this.headers[JsSIP.Utils.headerize(name)]) ? true : false;
@@ -236,9 +299,9 @@ IncomingMessage.prototype = {
 
   /**
   * Parse the given header on the given index.
-  * @param {String} name header name
-  * @param {Number} [idx=0] header index
-  * @returns {Object|undefined} Parsed header object, undefined if the header is not present or in case of a parsing error.
+  * -param {String} name header name
+  * -param {Number} [idx=0] header index
+  * -returns {Object|undefined} Parsed header object, undefined if the header is not present or in case of a parsing error.
   */
   parseHeader: function(name, idx) {
     var header, value, parsed;
@@ -248,10 +311,10 @@ IncomingMessage.prototype = {
     idx = idx || 0;
 
     if(!this.headers[name]) {
-      console.log(LOG_PREFIX +'header "' + name + '" not present');
+      this.logger.log('header "' + name + '" not present');
       return;
     } else if(idx >= this.headers[name].length) {
-      console.log(LOG_PREFIX +'not so many "' + name + '" headers present');
+      this.logger.log('not so many "' + name + '" headers present');
       return;
     }
 
@@ -267,7 +330,7 @@ IncomingMessage.prototype = {
 
     if(parsed === -1) {
       this.headers[name].splice(idx, 1); //delete from headers
-      console.warn(LOG_PREFIX +'error parsing "' + name + '" header field with value "' + value + '"');
+      this.logger.warn('error parsing "' + name + '" header field with value "' + value + '"');
       return;
     } else {
       header.parsed = parsed;
@@ -277,11 +340,11 @@ IncomingMessage.prototype = {
 
   /**
    * Message Header attribute selector. Alias of parseHeader.
-   * @param {String} name header name
-   * @param {Number} [idx=0] header index
-   * @returns {Object|undefined} Parsed header object, undefined if the header is not present or in case of a parsing error.
+   * -param {String} name header name
+   * -param {Number} [idx=0] header index
+   * -returns {Object|undefined} Parsed header object, undefined if the header is not present or in case of a parsing error.
    *
-   * @example
+   * -example
    * message.s('via',3).port
    */
   s: function(name, idx) {
@@ -290,8 +353,8 @@ IncomingMessage.prototype = {
 
   /**
   * Replace the value of the given header by the value.
-  * @param {String} name header name
-  * @param {String} value header value
+  * -param {String} name header name
+  * -param {String} value header value
   */
   setHeader: function(name, value) {
     var header = { raw: value };
@@ -303,11 +366,9 @@ IncomingMessage.prototype = {
   }
 };
 
-/**
- * @augments IncomingMessage
- * @class Class for incoming SIP request.
- */
-IncomingRequest = function() {
+IncomingRequest = function(ua) {
+  this.logger = ua.getLogger('jssip.sipmessage');
+  this.ua = ua;
   this.headers = {};
   this.ruri = null;
   this.transport = null;
@@ -317,15 +378,16 @@ IncomingRequest.prototype = new IncomingMessage();
 
 /**
 * Stateful reply.
-* @param {Number} code status code
-* @param {String} reason reason phrase
-* @param {Object} headers extra headers
-* @param {String} body body
-* @param {Function} [onSuccess] onSuccess callback
-* @param {Function} [onFailure] onFailure callback
+* -param {Number} code status code
+* -param {String} reason reason phrase
+* -param {Object} headers extra headers
+* -param {String} body body
+* -param {Function} [onSuccess] onSuccess callback
+* -param {Function} [onFailure] onFailure callback
 */
 IncomingRequest.prototype.reply = function(code, reason, extraHeaders, body, onSuccess, onFailure) {
   var rr, vias, length, idx, response,
+    supported = [],
     to = this.getHeader('To'),
     r = 0,
     v = 0;
@@ -341,22 +403,24 @@ IncomingRequest.prototype.reply = function(code, reason, extraHeaders, body, onS
   }
 
   reason = reason || JsSIP.C.REASON_PHRASE[code] || '';
-  extraHeaders = extraHeaders || [];
+  extraHeaders = extraHeaders && extraHeaders.slice() || [];
 
   response = 'SIP/2.0 ' + code + ' ' + reason + '\r\n';
 
   if(this.method === JsSIP.C.INVITE && code > 100 && code <= 200) {
-    rr = this.countHeader('record-route');
+    rr = this.getHeaders('record-route');
+    length = rr.length;
 
-    for(r; r < rr; r++) {
-      response += 'Record-Route: ' + this.getHeader('record-route', r) + '\r\n';
+    for(r; r < length; r++) {
+      response += 'Record-Route: ' + rr[r] + '\r\n';
     }
   }
 
-  vias = this.countHeader('via');
+  vias = this.getHeaders('via');
+  length = vias.length;
 
-  for(v; v < vias; v++) {
-    response += 'Via: ' + this.getHeader('via', v) + '\r\n';
+  for(v; v < length; v++) {
+    response += 'Via: ' + vias[v] + '\r\n';
   }
 
   if(!this.to_tag && code > 100) {
@@ -372,8 +436,31 @@ IncomingRequest.prototype.reply = function(code, reason, extraHeaders, body, onS
 
   length = extraHeaders.length;
   for (idx = 0; idx < length; idx++) {
-    response += extraHeaders[idx] +'\r\n';
+    response += extraHeaders[idx].trim() +'\r\n';
   }
+
+  // Supported
+  switch (this.method) {
+    case JsSIP.C.INVITE:
+      if (this.ua.contact.pub_gruu || this.ua.contact.temp_gruu) {
+        supported.push('gruu');
+      }
+      break;
+  }
+
+  supported.push('outbound');
+
+  // Allow and Accept
+  if (this.method === JsSIP.C.OPTIONS) {
+    response += 'Allow: '+ JsSIP.Utils.getAllowedMethods(this.ua) +'\r\n';
+    response += 'Accept: '+ JsSIP.UA.C.ACCEPTED_BODY_TYPES +'\r\n';
+  } else if (code === 405) {
+    response += 'Allow: '+ JsSIP.Utils.getAllowedMethods(this.ua) +'\r\n';
+  } else if (code === 415 ) {
+    response += 'Accept: '+ JsSIP.UA.C.ACCEPTED_BODY_TYPES +'\r\n';
+  }
+
+  response += 'Supported: ' +  supported +'\r\n';
 
   if(body) {
     length = JsSIP.Utils.str_utf8_length(body);
@@ -389,12 +476,14 @@ IncomingRequest.prototype.reply = function(code, reason, extraHeaders, body, onS
 
 /**
 * Stateless reply.
-* @param {Number} code status code
-* @param {String} reason reason phrase
+* -param {Number} code status code
+* -param {String} reason reason phrase
 */
 IncomingRequest.prototype.reply_sl = function(code, reason) {
   var to, response,
-    vias = this.countHeader('via');
+    v = 0,
+    vias = this.getHeaders('via'),
+    length = vias.length;
 
   code = code || null;
   reason = reason || null;
@@ -410,8 +499,8 @@ IncomingRequest.prototype.reply_sl = function(code, reason) {
 
   response = 'SIP/2.0 ' + code + ' ' + reason + '\r\n';
 
-  for(var v = 0; v < vias; v++) {
-    response += 'Via: ' + this.getHeader('via', v) + '\r\n';
+  for(v; v < length; v++) {
+    response += 'Via: ' + vias[v] + '\r\n';
   }
 
   to = this.getHeader('To');
@@ -432,11 +521,8 @@ IncomingRequest.prototype.reply_sl = function(code, reason) {
 };
 
 
-/**
- * @augments IncomingMessage
- * @class Class for incoming SIP response.
- */
-IncomingResponse = function() {
+IncomingResponse = function(ua) {
+  this.logger = ua.getLogger('jssip.sipmessage');
   this.headers = {};
   this.status_code = null;
   this.reason_phrase = null;

@@ -1,20 +1,9 @@
-/**
- * @fileoverview JsSIP Constants
- */
-
-/**
- * JsSIP Constants.
- * @augments JsSIP
- */
-
 JsSIP.C= {
   USER_AGENT: JsSIP.name +' '+ JsSIP.version,
 
   // SIP scheme
-  SIP: 'sip',
-
-  // Invalid target
-  INVALID_TARGET_URI: 'sip:invalid@invalid',
+  SIP:  'sip',
+  SIPS: 'sips',
 
   // End and Failure causes
   causes: {
@@ -22,7 +11,6 @@ JsSIP.C= {
     CONNECTION_ERROR:         'Connection Error',
     REQUEST_TIMEOUT:          'Request Timeout',
     SIP_FAILURE_CODE:         'SIP Failure Code',
-    INVALID_TARGET:           'Invalid Target',
     INTERNAL_ERROR:           'Internal Error',
 
     // SIP error causes
@@ -33,10 +21,12 @@ JsSIP.C= {
     NOT_FOUND:                'Not Found',
     ADDRESS_INCOMPLETE:       'Address Incomplete',
     INCOMPATIBLE_SDP:         'Incompatible SDP',
+    MISSING_SDP:              'Missing SDP',
     AUTHENTICATION_ERROR:     'Authentication Error',
     DIALOG_ERROR:             'Dialog Error',
 
     // Session error causes
+    BYE:                      'Terminated',
     WEBRTC_NOT_SUPPORTED:     'WebRTC Not Supported',
     WEBRTC_ERROR:             'WebRTC Error',
     CANCELED:                 'Canceled',
@@ -136,7 +126,7 @@ JsSIP.C= {
     491: 'Request Pending',
     493: 'Undecipherable',
     494: 'Security Agreement Required',  // RFC 3329
-    500: 'Server Internal Error',
+    500: 'JsSIP Internal Error',
     501: 'Not Implemented',
     502: 'Bad Gateway',
     503: 'Service Unavailable',

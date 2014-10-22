@@ -1,20 +1,6 @@
-/**
- * @fileoverview Incoming SIP Message Sanity Check
- */
-
-/**
- * SIP message sanity check.
- * @augments JsSIP
- * @function
- * @param {JsSIP.IncomingMessage} message
- * @param {JsSIP.UA} ua
- * @param {JsSIP.Transport} transport
- * @returns {Boolean}
- */
 (function(JsSIP) {
 var sanityCheck,
- LOG_PREFIX = JsSIP.name +' | '+ 'SANITY CHECK' +' | ',
-
+ logger,
  message, ua, transport,
  requests = [],
  responses = [],
@@ -33,7 +19,6 @@ var sanityCheck,
  *
  * Responses:
  *  - _rfc3261_8_1_3_3_ Multiple Via headers
- *  - _rfc3261_18_1_2_ sent-by mismatch
  *  - _rfc3261_18_3_response_ Body Content-Length
  *
  * All:
@@ -73,31 +58,45 @@ function rfc3261_8_2_2_2() {
     call_id = message.call_id,
     cseq = message.cseq;
 
-  if(!message.to_tag) {
-    if(message.method === JsSIP.C.INVITE) {
-      tr = ua.transactions.ist[message.via_branch];
-      if(!tr) {
-        return;
-      } else {
-        for(idx in ua.transactions.ist) {
-          tr = ua.transactions.ist[idx];
-          if(tr.request.from_tag === fromTag && tr.request.call_id === call_id && tr.request.cseq === cseq) {
-            reply(482);
-            return false;
-          }
+  // Accept any in-dialog request.
+  if(message.to_tag) {
+    return;
+  }
+
+  // INVITE request.
+  if (message.method === JsSIP.C.INVITE) {
+    // If the branch matches the key of any IST then assume it is a retransmission
+    // and ignore the INVITE.
+    // TODO: we should reply the last response.
+    if (ua.transactions.ist[message.via_branch]) {
+      return false;
+    }
+    // Otherwise check whether it is a merged request.
+    else {
+      for(idx in ua.transactions.ist) {
+        tr = ua.transactions.ist[idx];
+        if(tr.request.from_tag === fromTag && tr.request.call_id === call_id && tr.request.cseq === cseq) {
+          reply(482);
+          return false;
         }
       }
-    } else {
-      tr = ua.transactions.nist[message.via_branch];
-      if(!tr) {
-        return;
-      } else {
-        for(idx in ua.transactions.nist) {
-          tr = ua.transactions.nist[idx];
-          if(tr.request.from_tag === fromTag && tr.request.call_id === call_id && tr.request.cseq === cseq) {
-            reply(482);
-            return false;
-          }
+    }
+  }
+  // Non INVITE request.
+  else {
+    // If the branch matches the key of any NIST then assume it is a retransmission
+    // and ignore the request.
+    // TODO: we should reply the last response.
+    if (ua.transactions.nist[message.via_branch]) {
+      return false;
+    }
+    // Otherwise check whether it is a merged request.
+    else {
+      for(idx in ua.transactions.nist) {
+        tr = ua.transactions.nist[idx];
+        if(tr.request.from_tag === fromTag && tr.request.call_id === call_id && tr.request.cseq === cseq) {
+          reply(482);
+          return false;
         }
       }
     }
@@ -106,16 +105,8 @@ function rfc3261_8_2_2_2() {
 
 // Sanity Check functions for responses
 function rfc3261_8_1_3_3() {
-  if(message.countHeader('via') > 1) {
-    console.warn(LOG_PREFIX +'More than one Via header field present in the response. Dropping the response');
-    return false;
-  }
-}
-
-function rfc3261_18_1_2() {
-  var via_host = ua.configuration.via_host;
-  if(message.via.host !== via_host) {
-    console.warn(LOG_PREFIX +'Via host in the response does not match UA Via host value. Dropping the response');
+  if(message.getHeaders('via').length > 1) {
+    logger.warn('More than one Via header field present in the response. Dropping the response');
     return false;
   }
 }
@@ -126,7 +117,7 @@ function rfc3261_18_3_response() {
     contentLength = message.getHeader('content-length');
 
     if(len < contentLength) {
-      console.warn(LOG_PREFIX +'Message body length is lower than the value in Content-Length header field. Dropping the response');
+      logger.warn('Message body length is lower than the value in Content-Length header field. Dropping the response');
       return false;
     }
 }
@@ -139,7 +130,7 @@ function minimumHeaders() {
 
   while(idx--) {
     if(!message.hasHeader(mandatoryHeaders[idx])) {
-      console.warn(LOG_PREFIX +'Missing mandatory header field : '+ mandatoryHeaders[idx] +'. Dropping the response');
+      logger.warn('Missing mandatory header field : '+ mandatoryHeaders[idx] +'. Dropping the response');
       return false;
     }
   }
@@ -149,11 +140,12 @@ function minimumHeaders() {
 function reply(status_code) {
   var to,
     response = "SIP/2.0 " + status_code + " " + JsSIP.C.REASON_PHRASE[status_code] + "\r\n",
-    via_length = message.countHeader('via'),
+    vias = message.getHeaders('via'),
+    length = vias.length,
     idx = 0;
 
-  for(idx; idx < via_length; idx++) {
-    response += "Via: " + message.getHeader('via', idx) + "\r\n";
+  for(idx; idx < length; idx++) {
+    response += "Via: " + vias[idx] + "\r\n";
   }
 
   to = message.getHeader('To');
@@ -177,7 +169,6 @@ requests.push(rfc3261_18_3_request);
 requests.push(rfc3261_8_2_2_2);
 
 responses.push(rfc3261_8_1_3_3);
-responses.push(rfc3261_18_1_2);
 responses.push(rfc3261_18_3_response);
 
 all.push(minimumHeaders);
@@ -188,6 +179,8 @@ sanityCheck = function(m, u, t) {
   message = m;
   ua = u;
   transport = t;
+
+  logger = ua.getLogger('jssip.sanitycheck');
 
   len = all.length;
   while(len--) {

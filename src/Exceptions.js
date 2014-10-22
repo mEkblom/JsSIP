@@ -1,15 +1,17 @@
-/**
- * @fileoverview Exceptions
- */
-
-/**
- * JsSIP Exceptions.
- * @augments JsSIP
- */
 (function(JsSIP) {
 var Exceptions;
 
+
+/**
+ * @namespace Exceptions
+ * @memberOf JsSIP
+ */
 Exceptions= {
+  /**
+   * Exception thrown when a valid parameter is given to the JsSIP.UA constructor.
+   * @class ConfigurationError
+   * @memberOf JsSIP.Exceptions
+   */
   ConfigurationError: (function(){
     var exception = function(parameter, value) {
       this.code = 1;
@@ -22,22 +24,32 @@ Exceptions= {
     return exception;
   }()),
 
-  InvalidTargetError: (function(){
-    var exception = function(target) {
+  InvalidStateError: (function(){
+    var exception = function(status) {
       this.code = 2;
-      this.name = 'INVALID_TARGET_ERROR';
-      this.target = target;
-      this.message = 'Invalid target: ' + this.target;
+      this.name = 'INVALID_STATE_ERROR';
+      this.status = status;
+      this.message = 'Invalid status: '+ status;
     };
     exception.prototype = new Error();
     return exception;
   }()),
 
-  InvalidStateError: (function(){
-    var exception = function(status) {
+  NotSupportedError: (function(){
+    var exception = function(message) {
       this.code = 3;
-      this.name = 'INVALID_STATE_ERROR';
-      this.status = status;
+      this.name = 'NOT_SUPPORTED_ERROR';
+      this.message = message;
+    };
+    exception.prototype = new Error();
+    return exception;
+  }()),
+
+  NotReadyError: (function(){
+    var exception = function(message) {
+      this.code = 4;
+      this.name = 'NOT_READY_ERROR';
+      this.message = message;
     };
     exception.prototype = new Error();
     return exception;
